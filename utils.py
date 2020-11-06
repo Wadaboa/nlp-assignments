@@ -243,7 +243,6 @@ def visualize_embeddings(embeddings, word_annotations=None, word_to_idx=None):
     words (`word_annotations` list) in order to better analyze the 
     effectiveness of the embedding method.
     """
-    fig = plt.figure(figsize=(12, 8), dpi=100)
     ax = plt.gca()
     
     # Annotate given words
@@ -291,43 +290,3 @@ def reduce_tsne(embeddings, seed=0):
     """
     tsne = TSNE(n_components=2, n_iter=1000, metric='cosine', n_jobs=2, random_state=seed)
     return tsne.fit_transform(embeddings)
-
-
-def get_analogies(
-    embedding_matrix,
-    idx_to_word,
-    word_to_idx,
-    similarity_matrix,
-    similarity_func,
-    positive_listing,
-    negative_listing,
-    k
-):
-    """
-    Finds the top `k` most similar words following this reasoning:
-        - Words that have highest similarity to words in `positive_listing`
-        - Words that have highest distance to words in `negative_listing`
-    """
-    # Positive words (similarity)
-    positive_indexes = np.array([word_to_idx[word] for word in positive_listing])
-    word_positive_vector = np.sum(embedding_matrix[positive_indexes, :], axis=0)
-
-    # Negative words (distance)
-    negative_indexes = np.array([word_to_idx[word] for word in negative_listing])
-    word_negative_vector = np.sum(embedding_matrix[negative_indexes, :], axis=0)
-
-    # Find candidate words
-    target_vector = (word_positive_vector - word_negative_vector) / (len(positive_listing) + len(negative_listing))
-    total_indexes = np.concatenate((positive_indexes, negative_indexes))
-    valid_indexes = np.setdiff1d(np.arange(similarity_matrix.shape[0]), total_indexes)
-    candidate_vectors = embedding_matrix[valid_indexes]
-
-    candidate_similarities = similarity_func(candidate_vectors, target_vector, transpose_q=True)
-    candidate_similarities = candidate_similarities.ravel()
-    
-    relative_indexes = np.argsort(candidate_similarities, axis=0)[::-1]
-    relative_indexes = relative_indexes[:K]
-    top_K_indexes = valid_indexes[relative_indexes]
-    top_K_words = [idx_to_word[idx] for idx in top_K_indexes]
-
-    return top_K_words, candidate_similarities[relative_indexes]
