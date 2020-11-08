@@ -250,44 +250,44 @@ def load_embedding_model(model_type, embedding_dimension=50):
     return emb_model
 
 
+def reject_outliers(data, m=2.):
+    d = np.abs(data - np.median(data))
+    mdev = np.median(d)
+    s = d / (mdev if mdev else 1.)
+    return data[s < m]
+
+
 def visualize_embeddings(embeddings, word_annotations=None, word_to_idx=None):
     """
     Plots the given reduced word embeddings (2D). Users can highlight specific 
     words (`word_annotations` list) in order to better analyze the 
     effectiveness of the embedding method.
     """
-    plt.figure()
     ax = plt.gca()
     
+    # Draw word vectors
+    ax.scatter(embeddings[:, 0], embeddings[:, 1], alpha=0.1, c='blue')
+    
     # Annotate given words
-    other_embeddings = embeddings
     if word_annotations is not None and word_to_idx is not None:
         word_indexes = []
         for word in word_annotations:
             word_index = word_to_idx[word]
             word_indexes.append(word_index)
         word_indexes = np.array(word_indexes)
-        other_embeddings = embeddings[np.setdiff1d(np.arange(embeddings.shape[0]), word_indexes)]
         target_embeddings = embeddings[word_indexes]
-
         ax.scatter(target_embeddings[:, 0], target_embeddings[:, 1], alpha=1.0, c='red')
-        ax.scatter(target_embeddings[:, 0], target_embeddings[:, 1], alpha=1, facecolors='none', edgecolors='r', s=1000)
+        ax.scatter(target_embeddings[:, 0], target_embeddings[:, 1], alpha=1.0, facecolors='none', edgecolors='r', s=1000)
         for word, word_index in zip(word_annotations, word_indexes):
-            word_x, word_y = embeddings[word_index, 0], embeddings[word_index, 1]
-            ax.annotate(word, xy=(word_x, word_y))
+            ax.annotate(word, xy=(embeddings[word_index, 0], embeddings[word_index, 1]))
     
-    # Draw word vectors
-    ax.scatter(other_embeddings[:, 0], other_embeddings[:, 1], alpha=0.1, c='blue')
-
-    # Avoid outliers ruining the visualization if they are quite far away
+    # Do not represent outliers
     xmin_quantile = np.quantile(embeddings[:, 0], q=0.01)
     xmax_quantile = np.quantile(embeddings[:, 0], q=0.99)
     ymin_quantile = np.quantile(embeddings[:, 1], q=0.01)
     ymax_quantile = np.quantile(embeddings[:, 1], q=0.99)
     ax.set_xlim(xmin_quantile, xmax_quantile)
     ax.set_ylim(ymin_quantile, ymax_quantile)
-    
-    plt.show()
 
 
 def reduce_svd(embeddings, seed=0):
