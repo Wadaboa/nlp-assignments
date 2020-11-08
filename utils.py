@@ -2,6 +2,7 @@ import os
 import re
 import tarfile
 import urllib.request
+from functools import partial
 
 import pandas as pd
 import numpy as np
@@ -16,15 +17,16 @@ from sklearn.manifold import TSNE
 from sklearn.decomposition import TruncatedSVD
 
 
-# Download NLTK packages
-nltk.download("stopwords")
-nltk.download("punkt")
-nltk.download("wordnet")
-
 # NLTK utils
-STEMMER = nltk.porter.PorterStemmer()
-LEMMATIZER = nltk.wordnet.WordNetLemmatizer()
-EN_STOPWORDS = set(stopwords.words("english"))
+try:
+    STEMMER = nltk.porter.PorterStemmer()
+    LEMMATIZER = nltk.wordnet.WordNetLemmatizer()
+    EN_STOPWORDS = set(stopwords.words("english"))
+except LookupError:
+    nltk.download("stopwords")
+    nltk.download("punkt")
+    nltk.download("wordnet")
+    
 
 # Regular expressions
 DATE_RE = r"\d{1,2}[-\/\.]\d{1,2}[-\/\.]\d{2,4}"
@@ -33,11 +35,14 @@ INT_RE = r"(?<=\s)\d+(?=\s)"
 BRACKETS_RE = r"\[[^]]*\]"
 HTML_RE = r"<.*?>"
 PUNCTUATION_RE = r"[^\w{w}\s\{<>}]+"
+SPECIAL_CHARS_RE = r"[/(){}\[\]\|@,;]"
+GOOD_SYMBOLS_RE = r"[^0-9a-z #+_]"
 
 
 def preprocess_text(
     text,
-    regexes=True,
+    space_regexes=None,
+    empty_regexes=None,
     start_end_symbols=True,
     mark_neg=False,
     remove_punct=False,
@@ -59,21 +64,19 @@ def preprocess_text(
     text = text.strip().replace("\n", " ").replace("\r", " ")
     # Convert to lowercase
     text = text.lower()
-    # Apply regular expressions
-    if regexes:
-        # Remove HTML tags
-        text = re.sub(HTML_RE, "", text)
-        # Remove text in square brackets
-        text = re.sub(BRACKETS_RE, "", text)
-        # Remove dates
-        text = re.sub(DATE_RE, "", text)
-        # Remove floating numbers
-        text = re.sub(FLOAT_RE, "", text)
+    # Apply regular expressions and substitute with space
+    if space_regexes is not None:
+        for space_regex in space_regexes:
+            text = re.sub(space_regex, " ", text)
+    # Apply regular expressions and substitute with empty string
+    if empty_regexes is not None:
+        for empty_regex in empty_regexes:
+            text = re.sub(empty_regex, "", text)
     # Mark negation
     if mark_neg:
         text = " ".join(mark_negation(text.split(), double_neg_flip=False))
         EN_STOPWORDS.add("_NEG")
-    # Remove punctuation
+    # Remove every punctuation symbol
     if remove_punct:
         text = re.sub(PUNCTUATION_RE, "", text)
     # Leave single whitespace
@@ -114,11 +117,19 @@ class IMDBDataset():
         self.original_dataset_path = os.path.join(self.original_dataset_folder, "movies.tar.gz")
         self.dataframe_path = dataframe_path or os.path.join(self.dataset_folder, "dataframe", self.NAME + ".pkl")      
         
-        # Download the dataset, preprocess it and load the dataframe
+        # Download the dataset, prepare it and load the dataframe
         self._create_dirs()
         self._download()
         self.dataframe = self._prepare()
         
+        # Preprocess the dataframe
+        self.standard_preprocessor = partial(
+            preprocess_text, 
+            space_regexes=[SPECIAL_CHARS_RE], 
+            empty_regexes=[GOOD_SYMBOLS_RE],
+            remove_stopwords=True,
+            start_end_symbols=False
+        )
         if preprocessor is not None:
             self.preprocess(preprocessor)
 
@@ -195,10 +206,12 @@ class IMDBDataset():
         
         return pd.read_pickle(self.dataframe_path)
     
-    def preprocess(self, preprocessor):
+    def preprocess(self, preprocessor=None):
         '''
         Apply standard preprocessing to every movie review
         '''
+        if preprocessor is None:
+            preprocessor = self.standard_preprocessor
         self.dataframe["text"] = self.dataframe["text"].apply(preprocessor)
         
     def get_portion(self, amount=500, seed=0):
@@ -243,6 +256,7 @@ def visualize_embeddings(embeddings, word_annotations=None, word_to_idx=None):
     words (`word_annotations` list) in order to better analyze the 
     effectiveness of the embedding method.
     """
+    plt.figure()
     ax = plt.gca()
     
     # Annotate given words
