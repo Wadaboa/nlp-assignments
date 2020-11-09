@@ -257,7 +257,7 @@ def reject_outliers(data, m=2.):
     return data[s < m]
 
 
-def visualize_embeddings(embeddings, word_annotations=None, word_to_idx=None):
+def visualize_embeddings(embeddings, word_annotations=None, word_to_idx=None, remove_outliers=True):
     """
     Plots the given reduced word embeddings (2D). Users can highlight specific 
     words (`word_annotations` list) in order to better analyze the 
@@ -282,12 +282,15 @@ def visualize_embeddings(embeddings, word_annotations=None, word_to_idx=None):
             ax.annotate(word, xy=(embeddings[word_index, 0], embeddings[word_index, 1]))
     
     # Do not represent outliers
-    xmin_quantile = np.quantile(embeddings[:, 0], q=0.01)
-    xmax_quantile = np.quantile(embeddings[:, 0], q=0.99)
-    ymin_quantile = np.quantile(embeddings[:, 1], q=0.01)
-    ymax_quantile = np.quantile(embeddings[:, 1], q=0.99)
-    ax.set_xlim(xmin_quantile, xmax_quantile)
-    ax.set_ylim(ymin_quantile, ymax_quantile)
+    if remove_outliers:
+        xmin_quantile = np.quantile(embeddings[:, 0], q=0.01)
+        xmax_quantile = np.quantile(embeddings[:, 0], q=0.99)
+        ymin_quantile = np.quantile(embeddings[:, 1], q=0.01)
+        ymax_quantile = np.quantile(embeddings[:, 1], q=0.99)
+        ax.set_xlim(xmin_quantile, xmax_quantile)
+        ax.set_ylim(ymin_quantile, ymax_quantile)
+        
+    plt.show()
 
 
 def reduce_svd(embeddings, seed=0):
