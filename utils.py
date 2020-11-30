@@ -250,13 +250,6 @@ def load_embedding_model(model_type, embedding_dimension=50):
     return emb_model
 
 
-def reject_outliers(data, m=2.):
-    d = np.abs(data - np.median(data))
-    mdev = np.median(d)
-    s = d / (mdev if mdev else 1.)
-    return data[s < m]
-
-
 def visualize_embeddings(embeddings, word_annotations=None, word_to_idx=None, remove_outliers=True):
     """
     Plots the given reduced word embeddings (2D). Users can highlight specific 
